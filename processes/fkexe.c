@@ -6,15 +6,18 @@
 int main(){
     //__pid_t gf = getpid();
     //int exitcode = 54;
-    printf("Main process PID: %i \n", getpid());
+    printf("Main process PID: %i \n\n", getpid());
 
-    if(fork() == 0){
+    int n1 = fork();
+    if(n1 == 0){
         execl("new1.out", "new1.out", (char*) NULL);
     }
+    printf("Child1 PID: %i \n\n", n1);
     int n2 = fork();
     if(n2 == 0){
         execl("new2.out", "new2.out", (char*) NULL);
     }
+    printf("Child2 PID: %i \n\n", n2);
 
     char waitReturn_1[4]; 
     char waitReturn_2[4]; 
@@ -28,7 +31,7 @@ int main(){
             waitReturn_1[i] = tmp;
             number_1 = number_1/16;
         }
-
+        printf("\nChild process ended\n");
         printf("childPID: %i \n", childPID_1);
         printf("End code: %i \n", waitReturn_1[2] + waitReturn_1[3]*16);
         printf("Signal number: %i \n", waitReturn_1[0] + waitReturn_1[1]*16);
@@ -41,7 +44,7 @@ int main(){
             waitReturn_2[i] = tmp;
             number = number/16;
         }
-
+        printf("\nChild process ended\n");
         printf("childPID: %i \n", childPID_2);
         printf("End code: %i \n", waitReturn_2[2] + waitReturn_2[3]*16);
         printf("Signal number: %i \n", waitReturn_2[0] + waitReturn_2[1]*16);
