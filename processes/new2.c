@@ -5,11 +5,11 @@
 
 void sig_handler(int sig){
     if(sig == SIGINT){
-        printf("Recived INT signal\n");
+        printf("Catched INT signal\n");
         exit(70);
     }
     if(sig == SIGTERM){
-        printf("Recived TERM signal\n");
+        printf("Catched TERM signal\n");
         exit(40);
     }
 }
