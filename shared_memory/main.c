@@ -14,7 +14,6 @@ key_t sem_key;
 size_t mem_size;
 int shmID;
 int *shm_ptr_int;
-int *arr;
 char *shm_ptr_char;
 int info;
 
@@ -36,21 +35,22 @@ int writeToMemory(){
     // Lock a semaphore
     P(semID, 0);
 
+    printf("Enter new values? [y/n]: ");
+    int c = getchar();
+    if(c != 'y'){
+        V(semID, 0);
+    }
+
     // write char array to shared memory
-    printf( "Enter a new value (max 16 characters) :");
-    fgets(shm_ptr_char, 16, stdin);
-    printf( "\nYou entered: ");
-    puts(shm_ptr_char );
+    printf( "Enter a new value (max 15 characters) :");
+    scanf("%15s", shm_ptr_char);
+    printf( "\nYou entered: %s \n", shm_ptr_char);
 
     shm_ptr_int = shm_ptr_char;
     // write ints to shared memory
     for(int i=4; i<7; i++){
         shm_ptr_int[i] = i;
-        //sleep(1);
         printf("%i, ", shm_ptr_int[i]);
-        //printf("Adres pod ktorym lezy shm_ptr_int: %ld \n", &shm_ptr_int);
-        //printf("Adres: %ld \n", &shm_ptr_int[i]);
-        //printf("%i, ", shm_ptr_int[i]);
     }
     // last integer informs customer that producer entered new values. It changes value between 0 and 1 on every iteration
     if(shm_ptr_int[8] == 0)
@@ -91,16 +91,13 @@ int main(){
     while(writeToMemory() == 1) {
         //printf("Semaphore value: %i\n", semctl(semID, 0, GETVAL));
         // Wait until consumer made an action on shared memory
-        sleep(2);
-        while (semctl(semID, 0, GETVAL) != 1) {
+        //sleep(2);
+        while (semctl(semID, 0, GETVAL) == 0) {
             printf("Waiting for customer\n");
             sleep(1);
         }
-        printf("Enter new values? [y/n]: ");
-        int c = getchar();
-        if(c != 'y'){
-            break;
-        }
+        //writeToMemory();
     }
+    printf("\n");
     return 0;
 }

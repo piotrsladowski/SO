@@ -6,19 +6,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include "semaphore.h"
 
 key_t mem_key;
 key_t sem_key;
 size_t mem_size;
 int shmID;
 int *shm_ptr_int;
-int *arr;
 char *shm_ptr_char;
 int info;
 
 int semID;
-
-struct sembuf sem_operation;
 
 union semun{
     int val;
@@ -30,55 +28,27 @@ union semun{
 int readFromMemory(){
     shm_ptr_char = (char *) shmat(shmID, NULL, 0);
     if ((int) shm_ptr_char == -1) {
-        printf("*** shmat error (server) ***\n");
+        printf("*** shmat error (client) ***\n");
         exit(1);
     }
 
     // Lock a semaphore
+    P(semID, 0);
 
-    printf("Semaphore value: %i\n", semctl(semID, 0, GETVAL));
-    sem_operation.sem_num = 0;
-    sem_operation.sem_op = -1;
-    sem_operation.sem_flg = SEM_UNDO | IPC_NOWAIT; // Raise error if can't do an operation
+    printf( "\nProducer entered: ");
+    puts(shm_ptr_char );
 
-    if(semop(semID, &sem_operation, 1) == -1){
-        printf("ERROR: Can't lock semaphore\n");
-        exit(1);
-    }
-    else{
-        printf("Semaphore successfully locked\n");
-    }
-
-
-    for(int i=0; i<1; i++){
-        printf( "\nProducer entered: ");
-        puts(shm_ptr_char );
-    }
     shm_ptr_int = shm_ptr_char;
 
-    for(int i=4; i<8; i++){
+    for(int i=4; i<7; i++){
         sleep(1);
         printf("%i, ", shm_ptr_int[i]);
         printf("Adres pod ktorym lezy shm_ptr_int: %ld \n", &shm_ptr_int);
         printf("Adres: %ld \n", &shm_ptr_int[i]);
-        //printf("%i, ", shm_ptr_int[i]);
     }
 
     // Unlock a semaphore
-
-    sem_operation.sem_num = 0;
-    sem_operation.sem_op = 1;
-    sem_operation.sem_flg = SEM_UNDO | IPC_NOWAIT; // Raise error if can't do an operation
-
-    //printf("Semaphore value: %i\n", semctl(semID, 0, GETVAL));
-
-    if(semop(semID, &sem_operation, 1) == -1){
-        printf("ERROR: Can't unlock a semaphore\n");
-        exit(1);
-    }
-    else{
-        printf("Semaphore successfully unlocked\n");
-    }
+    V(semID, 0);
 
     return 1;
 }
@@ -107,23 +77,27 @@ int main(){
     info = 0;
     //END SHARED MEMORY
 
-    //printf("Semaphore value: %i\n", semctl(semID, 0, GETVAL));
-
-    // Wait until consumer made an action on shared memory
+    // Wait until producer made an action on shared memory
     sleep(2);
-    while(semctl(semID, 0, GETVAL) != 1){
+    while(semctl(semID, 0, GETVAL) == 0){
         printf("Waiting for producer\n");
         sleep(1);
     }
     while (readFromMemory() == 1){
-        while(semctl(semID, 0, GETVAL) != 1){
+        while(semctl(semID, 0, GETVAL) == 0){
             printf("Waiting for producer\n");
             sleep(1);
         }
-        if(shm_ptr_int[7] != info)
+/*        if(shm_ptr_int[7] != info) {
+            info = shm_ptr_int[7];
             printf("New round\n");
-        else
+            sleep(2);
+        }
+        else{
+            printf("Producer hasn't entered new values\n");
             break;
+        }*/
+
     }
 
     return 0;
