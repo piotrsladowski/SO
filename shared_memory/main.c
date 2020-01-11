@@ -18,6 +18,7 @@ char *shm_ptr_char;
 int info;
 
 int semID;
+char ch;
 
 union semun{
     int val;
@@ -26,47 +27,69 @@ union semun{
     struct seminfo *__buf;
 } arg;
 
-int writeToMemory(){
+void initSharedMemory(){
     shm_ptr_char = (char *) shmat(shmID, NULL, 0);
-    if ((int) shm_ptr_char == -1) {
+    shm_ptr_int = (int *) shm_ptr_char;
+    shm_ptr_int[7] = 0;
+    if ((int) shm_ptr_int == -1) {
         printf("*** shmat error (server) ***\n");
         exit(1);
     }
+}
+
+int writeToMemory(){
+
     // Lock a semaphore
-    P(semID, 0);
+    if(P(semID, 0) != 0){
+        return 1;
+    }
 
     printf("Enter new values? [y/n]: ");
-    int c = getchar();
-    if(c != 'y'){
-        V(semID, 0);
+    ch = getchar() ;
+    getchar(); // catch new line char
+    // scanf(" %c",&ch);
+    if(ch != 'y'){
+        if(V(semID, 0) != 0){
+            return 1;
+        }
+        return 1;
     }
 
     // write char array to shared memory
-    printf( "Enter a new value (max 15 characters) :");
-    scanf("%15s", shm_ptr_char);
+    printf( "Enter a new value (max 15 characters): ");
+    char c;
+    int n=0;
+    while( (c=getchar()) != '\n' ) {
+        shm_ptr_char[n] = c;
+        ++n;//
+        if (n>=15)
+            break;
+    }
+    shm_ptr_char[n] = 0; //add terminating 0 at the end
     printf( "\nYou entered: %s \n", shm_ptr_char);
 
-    shm_ptr_int = shm_ptr_char;
     // write ints to shared memory
     for(int i=4; i<7; i++){
         shm_ptr_int[i] = i;
         printf("%i, ", shm_ptr_int[i]);
     }
-    // last integer informs customer that producer entered new values. It changes value between 0 and 1 on every iteration
-    if(shm_ptr_int[8] == 0)
-        shm_ptr_int[8] = 1;
-    if(shm_ptr_int[8] == 1)
-        shm_ptr_int[8] = 0;
 
+    if(shm_ptr_int[7] == 0) //<< TODO: replace with enum
+        shm_ptr_int[7] = 1;
+    else if(shm_ptr_int[7] == 1)
+        shm_ptr_int[7] = 0;
+    printf("ostatnie: %i\n", shm_ptr_int[7]);
     // Unlock a semaphore
-    V(semID,0);
+    if(V(semID, 0) != 0){
+        return 1;
+    }
 
-    return 1;
+    return 0;
 }
 
 int main(){
-    mem_key = ftok(".", 80);
-    sem_key = ftok(".", 81);
+    mem_key = ftok(".", 90);
+    sem_key = ftok(".", 91);
     mem_size = 8 * sizeof(int); // on my platform int is occupied by 4 bytes
     semID = semget(sem_key, 1, IPC_CREAT | 0600);
     if(semID == -1){
@@ -87,17 +110,33 @@ int main(){
     }
     printf("Shared memory ID: %i \n", shmID);
 
-    info = 0;
-    while(writeToMemory() == 1) {
+    initSharedMemory();
+
+    while(writeToMemory() == 0) {
         //printf("Semaphore value: %i\n", semctl(semID, 0, GETVAL));
         // Wait until consumer made an action on shared memory
-        //sleep(2);
+        sleep(2);
         while (semctl(semID, 0, GETVAL) == 0) {
             printf("Waiting for customer\n");
             sleep(1);
         }
-        //writeToMemory();
     }
     printf("\n");
+
+    //
+    // Detach shared memory
+    if(shmdt(shm_ptr_char) == 0){
+        printf("Successfully detached shared memory\n");
+    } else{
+        exit(1);
+    }
+
+    // Remove shared memory
+    if(shmctl(shmID, IPC_RMID, 0) == 0){
+        printf("Successfully removed shared memory\n");
+    } else{
+        printf("Error during removing shared memory\n");
+        exit(1);
+    }
     return 0;
 }
