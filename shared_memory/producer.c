@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 #include "semaphore.h"
-#include <stdio.h>
 
 key_t mem_key;
 key_t sem_key;
@@ -18,7 +17,7 @@ char *shm_ptr_char;
 int info;
 
 int semID;
-char ch;
+char choice;
 
 union semun{
     int val;
@@ -38,17 +37,15 @@ void initSharedMemory(){
 }
 
 int writeToMemory(){
-
     // Lock a semaphore
     if(P(semID, 0) != 0){
         return 1;
     }
 
     printf("Enter new values? [y/n]: ");
-    ch = getchar() ;
+    choice = getchar() ;
     getchar(); // catch new line char
-    // scanf(" %c",&ch);
-    if(ch != 'y'){
+    if(choice != 'y'){
         if(V(semID, 0) != 0){
             return 1;
         }
@@ -59,13 +56,14 @@ int writeToMemory(){
     printf( "Enter a new value (max 15 characters): ");
     char c;
     int n=0;
-    while( (c=getchar()) != '\n' ) {
-        shm_ptr_char[n] = c;
-        ++n;//
-        if (n>=15)
-            break;
+    while ((c = getchar()) != '\n' && c != EOF) { // flush input stream
+        if(n < 15){ // get only 15 chars
+            shm_ptr_char[n] = c;
+            n++;
+        }
+
     }
-    shm_ptr_char[n] = 0; //add terminating 0 at the end
+    shm_ptr_char[n] = '\0'; //add terminating 0 at the end
     printf( "\nYou entered: %s \n", shm_ptr_char);
 
     // write ints to shared memory
@@ -74,11 +72,12 @@ int writeToMemory(){
         printf("%i, ", shm_ptr_int[i]);
     }
 
-    if(shm_ptr_int[7] == 0) //<< TODO: replace with enum
+    // Flip control value
+    if(shm_ptr_int[7] == 0)
         shm_ptr_int[7] = 1;
     else if(shm_ptr_int[7] == 1)
         shm_ptr_int[7] = 0;
-    printf("ostatnie: %i\n", shm_ptr_int[7]);
+    printf("Control value: %i\n", shm_ptr_int[7]);
     // Unlock a semaphore
     if(V(semID, 0) != 0){
         return 1;
@@ -113,7 +112,6 @@ int main(){
     initSharedMemory();
 
     while(writeToMemory() == 0) {
-        //printf("Semaphore value: %i\n", semctl(semID, 0, GETVAL));
         // Wait until consumer made an action on shared memory
         sleep(2);
         while (semctl(semID, 0, GETVAL) == 0) {
@@ -123,7 +121,6 @@ int main(){
     }
     printf("\n");
 
-    //
     // Detach shared memory
     if(shmdt(shm_ptr_char) == 0){
         printf("Successfully detached shared memory\n");
@@ -135,7 +132,7 @@ int main(){
     if(shmctl(shmID, IPC_RMID, 0) == 0){
         printf("Successfully removed shared memory\n");
     } else{
-        printf("Error during removing shared memory\n");
+        printf("Error during removing shared memory.\n");
         exit(1);
     }
     return 0;

@@ -5,7 +5,6 @@
 #include <sys/sem.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdio.h>
 #include "semaphore.h"
 
 key_t mem_key;
@@ -53,9 +52,12 @@ int readFromMemory(){
     for(int i=4; i<7; i++){
         sleep(1);
         printf("%i, ", shm_ptr_int[i]);
-        printf("Adres pod ktorym lezy shm_ptr_int: %ld \n", &shm_ptr_int);
-        printf("Adres: %ld \n", &shm_ptr_int[i]);
+        printf("shm_ptr_int address: %p \n", &shm_ptr_int);
+        printf("Address: %p \n", &shm_ptr_int[i]);
     }
+    // Update control value
+    info = shm_ptr_int[7];
+
 
     // Unlock a semaphore
     if(V(semID, 0) != 0){
@@ -101,7 +103,6 @@ int main(){
             sleep(1);
         }
         if(shm_ptr_int[7] != info) {
-            info = shm_ptr_int[7];
             printf("New round\n");
         }
         else{
@@ -116,7 +117,13 @@ int main(){
     } else{
         exit(1);
     }
-
+    // Remove shared memory
+    if(shmctl(shmID, IPC_RMID, 0) == 0){
+        printf("Successfully removed shared memory\n");
+    } else{
+        printf("Error during removing shared memory. Is it already removed?\n");
+        exit(1);
+    }
 
 
     return 0;
